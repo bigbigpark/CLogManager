@@ -5,13 +5,13 @@ A lightweight and easy-to-use C++ logging class that supports multi-threaded env
 </br>
 
 ## ✨ Features
+- C++-17 Standard, unicode character set
 - Thread-safe class (Singleton access)
 - Easy to use with macro function
 - Various Log levels (TRACE, DEBUG, INFO, WARN, ERROR, FATAL)
 - Automatic log file rotation (100 MB max per file)
 - Logs stored in per-day folders (e.g., `C:\MyLog\20250612`)
 - Configurable log level via `log_conf.ini`
-
 
 </br>
 
