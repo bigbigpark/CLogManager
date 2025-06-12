@@ -1,25 +1,25 @@
 /*****************************************************************//**
- * \file   CLogManager.cpp
- * \brief  ·Î±× °ü¸® Å¬·¡½º ±¸Çö
+ * \file   CLogManager.h
+ * \brief  ë¡œê·¸ ê´€ë¦¬ í´ë˜ìŠ¤ í—¤ë” íŒŒì¼
  *
  * \author Seongchang Park
  * \date   26 November 2024
- * 
+ *
  * \copyright
  * MIT License
- * 
+ *
  * Copyright (c) 2024 Seongchang Park
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -30,18 +30,20 @@
  *********************************************************************/
 #pragma once
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <queue>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
-#include <afxstr.h>
 #include <fstream>
+#include <sstream>
 #include <filesystem>
 #include <chrono>
-#include <afx.h>
 #include <cstdarg>  // va_list
+#include <Windows.h>
 
-// ·Î±× ¸ÅÅ©·Î (¿ÜºÎ¿¡¼­´Â ÀÌ ÇÔ¼öµé¸¸ »ç¿ëÇØ¾ß ÇÔ)
+ // ë¡œê·¸ ë§¤í¬ë¡œ (ì™¸ë¶€ì—ì„œëŠ” ì´ í•¨ìˆ˜ë“¤ë§Œ ì‚¬ìš©í•´ì•¼ í•¨)
 #define LOG_TRACE(msg, ...)CLogManager::getInstance().logMessage(LogLevel::LOG_TRACE, msg, __FUNCTION__, __LINE__, __VA_ARGS__)
 #define LOG_DEBUG(msg, ...)CLogManager::getInstance().logMessage(LogLevel::LOG_DEBUG, msg, __FUNCTION__, __LINE__, __VA_ARGS__)
 #define LOG_INFO(msg, ...) CLogManager::getInstance().logMessage(LogLevel::LOG_INFO, msg, __FUNCTION__, __LINE__, __VA_ARGS__)
@@ -65,23 +67,23 @@ class CLogManager
 	~CLogManager();
 
 public:
-	static CLogManager& getInstance(); // Å¬·¡½º ÀÎ½ºÅÏ½º ¹İÈ¯ (singleton)
-	void logMessage(LogLevel level, const char* msg, const char* function, int line, ...); // ·Î±× ¸Ş¼¼Áö ÀÛ¼º ÇÔ¼ö
+	static CLogManager& getInstance(); // í´ë˜ìŠ¤ ì¸ìŠ¤í„´ìŠ¤ ë°˜í™˜ (singleton)
+	void logMessage(LogLevel level, const char* msg, const char* function, int line, ...); // ë¡œê·¸ ë©”ì„¸ì§€ ì‘ì„± í•¨ìˆ˜
 
 private:
-	std::queue<std::pair<LogLevel, std::string>> log_queue_; // ·Î±× queue
-	std::mutex mutex_;				// µ¿±âÈ­¿ë mutex
-	std::condition_variable cv_;	// ´ë±â/¾Ë¸²À» À§ÇÑ conditional variable
-	std::thread log_worker_thread_;	// ·Î±× Ã³¸®ÇÏ´Â work thread
+	std::queue<std::pair<LogLevel, std::string>> log_queue_; // ë¡œê·¸ queue
+	std::mutex mutex_;				// ë™ê¸°í™”ìš© mutex
+	std::condition_variable cv_;	// ëŒ€ê¸°/ì•Œë¦¼ì„ ìœ„í•œ conditional variable
+	std::thread log_worker_thread_;	// ë¡œê·¸ ì²˜ë¦¬í•˜ëŠ” work thread
 
-	std::fstream current_log_file_; // ÇöÀç ·Î±× ÆÄÀÏ
-	size_t current_log_file_size_;	// ÇöÀç ·Î±× ÆÄÀÏ »çÀÌÁî
-	std::string log_directory_;		// ·Î±× µğ·ºÅä¸®
-	LogLevel log_level_;			// ·Î±× ·¹º§
+	std::fstream current_log_file_; // í˜„ì¬ ë¡œê·¸ íŒŒì¼
+	size_t current_log_file_size_;	// í˜„ì¬ ë¡œê·¸ íŒŒì¼ ì‚¬ì´ì¦ˆ
+	std::string log_directory_;		// ë¡œê·¸ ë””ë ‰í† ë¦¬
+	LogLevel log_level_;			// ë¡œê·¸ ë ˆë²¨
 
-	void readInitialLogSetting();	// ·Î±× ·¹º§ ÀĞ¾î¿À±â
-	void logWorker(); // ·Î±× Ã³¸® worker ½º·¹µå ÇÔ¼ö
-	std::string convertLogLevelToString(LogLevel level); // ·Î±× ·¹º§À» ¹®ÀÚ¿­·Î º¯È¯
-	void writeLogToFile(const std::pair<LogLevel, std::string>& message); // ·Î±×¸¦ ÅØ½ºÆ® ÆÄÀÏ·Î ÀúÀå
+	void readInitialLogSetting();	// ë¡œê·¸ ë ˆë²¨ ì½ì–´ì˜¤ê¸°
+	void logWorker(); // ë¡œê·¸ ì²˜ë¦¬ worker ìŠ¤ë ˆë“œ í•¨ìˆ˜
+	std::string convertLogLevelToString(LogLevel level); // ë¡œê·¸ ë ˆë²¨ì„ ë¬¸ìì—´ë¡œ ë³€í™˜
+	void writeLogToFile(const std::pair<LogLevel, std::string>& message); // ë¡œê·¸ë¥¼ í…ìŠ¤íŠ¸ íŒŒì¼ë¡œ ì €ì¥
 };
 // EOF
