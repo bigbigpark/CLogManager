@@ -182,7 +182,6 @@ void CLogManager::logWorker()
 	while (true)
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
-		//cv_.wait(lock); 
 		cv_.wait(lock, [this] { return !log_queue_.empty(); }); // 큐에 로그가 채워지기를 대기 
 
 		while (!log_queue_.empty())
