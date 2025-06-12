@@ -1,6 +1,6 @@
 /*****************************************************************//**
  * \file   CLogManager.cpp
- * \brief  ·Î±× °ü¸® Å¬·¡½º ±¸Çö
+ * \brief  ë¡œê·¸ ê´€ë¦¬ í´ë˜ìŠ¤ êµ¬í˜„
  *
  * \author Seongchang Park
  * \date   26 November 2024
@@ -32,108 +32,216 @@
 #include "CLogManager.h"
 
 CLogManager::CLogManager() :
-log_directory_(_T("C:\\MyLog")),
+log_directory_("C:\\MyLog"),
 current_log_file_size_(0)
 {
-	// ·Î±× ·¹º§ ÀĞ¾î¿À±â
-	readInitialLogSetting();
+    // ë¡œê·¸ ë ˆë²¨ ì½ì–´ì˜¤ê¸°
+    readInitialLogSetting();
 
-	// ¿À´Ã ³¯Â¥ µğ·ºÅä¸® »ı¼º
-	std::time_t t = std::time(nullptr);
-	std::tm tm_tm = *std::localtime(&t);
+    // ì˜¤ëŠ˜ ë‚ ì§œ ë””ë ‰í† ë¦¬ ìƒì„±
+    std::time_t t = std::time(nullptr);
+    std::tm tm_tm = *std::localtime(&t);
 
-	char buffer[9];
-	(void)std::strftime(buffer, sizeof(buffer), "%Y%m%d", &tm_tm);
-	log_directory_ += "\\" + std::string(buffer);
+    char buffer[9];
+    (void)std::strftime(buffer, sizeof(buffer), "%Y%m%d", &tm_tm);
+    log_directory_ += "\\" + std::string(buffer);
 
-	// µğ·ºÅä¸®°¡ ¾øÀ¸¸é ÀÚµ¿ »ı¼º
-	(void)std::filesystem::create_directories(log_directory_);
+    // ë””ë ‰í† ë¦¬ê°€ ì—†ìœ¼ë©´ ìë™ ìƒì„±
+    (void)std::filesystem::create_directories(log_directory_);
 
-	// ·Î±× Ã³¸® ½º·¹µå ½ÃÀÛ
-	log_worker_thread_ = std::thread(&CLogManager::logWorker, this);
+    // ë¡œê·¸ ì²˜ë¦¬ ìŠ¤ë ˆë“œ ì‹œì‘
+    log_worker_thread_ = std::thread(&CLogManager::logWorker, this);
 }
 
 CLogManager::~CLogManager()
 {
-	// ¾²·¹µå Á¾·á ´ë±â
-	if (log_worker_thread_.joinable())
-	{
-		log_worker_thread_.join();
-	}
+    // ì“°ë ˆë“œ ì¢…ë£Œ ëŒ€ê¸°
+    if (log_worker_thread_.joinable())
+    {
+        log_worker_thread_.join();
+    }
 
-	// ·Î±× ÆÄÀÏ ´İ±â
-	if (current_log_file_.is_open())
-	{
-		current_log_file_.close();
-	}
+    // ë¡œê·¸ íŒŒì¼ ë‹«ê¸°
+    if (current_log_file_.is_open())
+    {
+        current_log_file_.close();
+    }
 }
 
-// singleton ÀÎ½ºÅÏ½º Á¢±Ù
+// singleton ì¸ìŠ¤í„´ìŠ¤ ì ‘ê·¼
 CLogManager& CLogManager::getInstance()
 {
-	static CLogManager instance;
-	return instance;
+    static CLogManager instance;
+    return instance;
 }
 
 void CLogManager::logMessage(LogLevel level, const char* msg, const char* function, int line, ...)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
 
-	// ÇöÀç ½Ã°£ ¾ò±â (½Ã½ºÅÛ ½Ã°è)
-	auto now = std::chrono::system_clock::now();
+    // í˜„ì¬ ì‹œê°„ ì–»ê¸° (ì‹œìŠ¤í…œ ì‹œê³„)
+    auto now = std::chrono::system_clock::now();
 
-	// ÇöÀç ½Ã°£À» ½Ã½ºÅÛ ½Ã°è·Î º¯È¯ (ÃÊ ´ÜÀ§)
-	// MISRA_CPP_17_00_02 time ¼±¾ğ ¹× ±İÁö º¯¼ö
-	std::time_t temptime = std::chrono::system_clock::to_time_t(now);
-	struct tm* time_info = std::localtime(&temptime);
+    // í˜„ì¬ ì‹œê°„ì„ ì‹œìŠ¤í…œ ì‹œê³„ë¡œ ë³€í™˜ (ì´ˆ ë‹¨ìœ„)
+    // MISRA_CPP_17_00_02 time ì„ ì–¸ ë° ê¸ˆì§€ ë³€ìˆ˜
+    std::time_t temptime = std::chrono::system_clock::to_time_t(now);
+    struct tm* time_info = std::localtime(&temptime);
 
-	// ¹Ğ¸®ÃÊ ´ÜÀ§ ½Ã°£ °è»ê
-	auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    // ë°€ë¦¬ì´ˆ ë‹¨ìœ„ ì‹œê°„ ê³„ì‚°
+    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
 
-	// ½Ã°£ Æ÷¸ËÆÃ: YYYY-MM-DD HH:MM:SS
-	std::stringstream time_stream;
-	time_stream << std::put_time(time_info, "%Y-%m-%d %H:%M:%S");
+    // ì‹œê°„ í¬ë§·íŒ…: YYYY-MM-DD HH:MM:SS
+    std::stringstream time_stream;
+    time_stream << std::put_time(time_info, "%Y-%m-%d %H:%M:%S");
 
-	// ¹Ğ¸®ÃÊ¸¦ Ãß°¡
-	time_stream << "." << std::setw(3) << std::setfill('0') << milliseconds.count();
+    // ë°€ë¦¬ì´ˆë¥¼ ì¶”ê°€
+    time_stream << "." << std::setw(3) << std::setfill('0') << milliseconds.count();
 
-	// °¡º¯ ÀÎÀÚ ¸®½ºÆ® Ã³¸®
-	va_list args;
-	va_start(args, line);  // lineÀº °¡º¯ ÀÎÀÚÀÇ ¸¶Áö¸· À§Ä¡
+    // ê°€ë³€ ì¸ì ë¦¬ìŠ¤íŠ¸ ì²˜ë¦¬
+    va_list args;
+    va_start(args, line);  // lineì€ ê°€ë³€ ì¸ìì˜ ë§ˆì§€ë§‰ ìœ„ì¹˜
 
-	// ·Î±× ¸Ş½ÃÁö Æ÷¸ËÆÃÀ» À§ÇÑ ¹öÆÛ
-	char buffer[1024];
-	(void)vsnprintf(buffer, sizeof(buffer), msg, args);  // °¡º¯ ÀÎÀÚ Ã³¸®
+    // ë¡œê·¸ ë©”ì‹œì§€ í¬ë§·íŒ…ì„ ìœ„í•œ ë²„í¼
+    char buffer[1024];
+    (void)vsnprintf(buffer, sizeof(buffer), msg, args);  // ê°€ë³€ ì¸ì ì²˜ë¦¬
 
-	va_end(args);  // °¡º¯ ÀÎÀÚ Á¾·á
+    va_end(args);  // ê°€ë³€ ì¸ì ì¢…ë£Œ
 
-	// ·Î±× ¸Ş½ÃÁö Æ÷¸ËÆÃ
-	std::ostringstream log_msg_stream;
-	log_msg_stream << "[" << time_stream.str() << "] "
-		<< "[" << convertLogLevelToString(level) << "] "
-		<< function << " (Line : " << line << ") -> "
-		<< buffer;
+    // ë¡œê·¸ ë©”ì‹œì§€ í¬ë§·íŒ…
+    std::ostringstream log_msg_stream;
+    log_msg_stream << "[" << time_stream.str() << "] "
+        << "[" << convertLogLevelToString(level) << "] "
+        << function << " (Line : " << line << ") -> "
+        << buffer;
 
-	// ·Î±× ¸Ş½ÃÁö ¿Ï¼º
-	std::string log_msg = log_msg_stream.str();
+    // ë¡œê·¸ ë©”ì‹œì§€ ì™„ì„±
+    std::string log_msg = log_msg_stream.str();
 
-	// ·Î±× ¸Ş¼¼Áö Æä¾î¸µ (·Î±×·¹º§ - ·Î±×¸Ş¼¼Áö)
-	// MISRA_CPP_17_00_02 log ¼±¾ğ ¹× ±İÁö º¯¼ö
-	std::pair<LogLevel, std::string> tmplog;
-	tmplog.first = level;
-	tmplog.second = log_msg;
+    // ë¡œê·¸ ë©”ì„¸ì§€ í˜ì–´ë§ (ë¡œê·¸ë ˆë²¨ - ë¡œê·¸ë©”ì„¸ì§€)
+    // MISRA_CPP_17_00_02 log ì„ ì–¸ ë° ê¸ˆì§€ ë³€ìˆ˜
+    std::pair<LogLevel, std::string> tmplog;
+    tmplog.first = level;
+    tmplog.second = log_msg;
 
-	log_queue_.push(tmplog);
-	cv_.notify_one();
+    log_queue_.push(tmplog);
+    cv_.notify_one();
 }
 
-// ·Î±× ·¹º§ ÀĞ¾î¿À±â
+// ë¡œê·¸ ë ˆë²¨ ì½ì–´ì˜¤ê¸°
 void CLogManager::readInitialLogSetting()
 {
-	// ·Î±× ¼³Á¤ ÆÄÀÏ °æ·Î 
-	CString log_config_file = _T("C:/MyLog/log_conf.ini");
+    // ë¡œê·¸ ì„¤ì • íŒŒì¼ ê²½ë¡œ 
+    std::string log_config_file = "C:/MyLog/log_conf.ini";
 
-	// [LOG_SETTING] ¼½¼Ç¿¡¼­ log_level °ª ÀĞ¾î¿À±â (Á¤¼ö°ª¸¸)
+    // [LOG_SETTING] ì„¹ì…˜ì—ì„œ log_level ê°’ ì½ì–´ì˜¤ê¸° (ì •ìˆ˜ê°’ë§Œ)
+    char buffer[MAX_PATH] = { 0, };
+    GetPrivateProfileStringA("LOG_SETTING", "log_level", "", buffer, MAX_PATH, log_config_file.c_str());
+    int log_level = 1;
+
+    try
+    {
+        log_level = std::stoi(std::string(buffer));
+    }
+    catch (const std::exception&)
+    {
+        if ((log_level !=4) || (log_level < 0)) {
+            log_level = 4;
+        }
+        LOG_ERROR("log_level ì„¤ì •ê°’ ì˜¤ë¥˜");
+    }
+
+    // ë¡œê·¸ ë ˆë²¨ ì„¤ì •
+    switch (log_level)
+    {
+    case 0:
+        log_level_ = LogLevel::LOG_TRACE;
+        break;
+    case 1:
+        log_level_ = LogLevel::LOG_DEBUG;
+        break;
+    case 2:
+        log_level_ = LogLevel::LOG_INFO;
+        break;
+    case 3:
+        log_level_ = LogLevel::LOG_WARN;
+        break;
+    case 4:
+        log_level_ = LogLevel::LOG_ERROR;
+        break;
+    case 5:
+        log_level_ = LogLevel::LOG_FATAL;
+        break;
+    default:
+        log_level_ = LogLevel::LOG_DEBUG;
+        break;
+    }
+}
+
+// ë¡œê·¸ ì²˜ë¦¬ worker ìŠ¤ë ˆë“œ í•¨ìˆ˜
+void CLogManager::logWorker()
+{
+    while (true)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cv_.wait(lock); // íì— ë¡œê·¸ê°€ ì±„ì›Œì§€ê¸°ë¥¼ ëŒ€ê¸° 
+
+        while (!log_queue_.empty())
+        {
+            // íì—ì„œ ë¡œê·¸ë¥¼ ëºŒ
+            std::pair log_msg = log_queue_.front();
+            log_queue_.pop();
+
+            // ë¡œê·¸ë¥¼ íŒŒì¼ì— ê¸°ë¡
+            writeLogToFile(log_msg);
+        }
+    }
+}
+
+// ë¡œê·¸ ë ˆë²¨ì„ ë¬¸ìì—´ë¡œ ë³€í™˜
+std::string CLogManager::convertLogLevelToString(LogLevel level)
+{
+    std::string level_str;
+
+    switch (level)
+    {
+    case LogLevel::LOG_TRACE:
+        level_str = "TRACE";
+        break;
+    case LogLevel::LOG_DEBUG:
+        level_str = "DEBUG";
+        break;
+    case LogLevel::LOG_INFO:
+        level_str = "INFO";
+        break;
+    case LogLevel::LOG_WARN:
+        level_str = "WARN";
+        break;
+    case LogLevel::LOG_ERROR:
+        level_str = "ERROR";
+        break;
+    case LogLevel::LOG_FATAL:
+        level_str = "FATAL";
+        break;
+    default:
+        level_str = "UNKNOWN";
+        break;
+    }
+    return level_str;
+}
+
+// ë¡œê·¸ë¥¼ í…ìŠ¤íŠ¸ íŒŒì¼ë¡œ ì €ì¥
+void CLogManager::writeLogToFile(const std::pair<LogLevel, std::string>& message)
+{
+    // ë¡œê·¸ íŒŒì¼ì´ ì—´ë ¤ìˆì§€ ì•Šê±°ë‚˜, ìš©ëŸ‰ì´ 100 MBë¥¼ ë„˜ìœ¼ë©´ ìƒˆ íŒŒì¼ë¡œ ê¸°ë¡í•œë‹¤
+    if ((!current_log_file_.is_open()) || (current_log_file_size_ >= 100 * 1024 * 1024))
+    {
+        // í˜„ì¬ ë‚ ì§œì™€ ì‹œê°„ ê¸°ë°˜ìœ¼ë¡œ íŒŒì¼ ìƒì„± [ì—°ì›”ì¼_ì‹œë¶„ì´ˆ]
+        std::time_t t = std::time(nullptr);
+        std::tm tm_tm = *std::localtime(&t);
+        char file_name[20];
+        size_t tm_size = std::strftime(file_name, sizeof(file_name), "%Y%m%d_%H%M%S.txt", &tm_tm);
+
+	// [LOG_SETTING] ì„¹ì…˜ì—ì„œ log_level ê°’ ì½ì–´ì˜¤ê¸° (ì •ìˆ˜ê°’ë§Œ)
 	TCHAR buffer[MAX_PATH] = { 0, };
 	GetPrivateProfileString(_T("LOG_SETTING"), _T("log_level"), _T(""), buffer, MAX_PATH, log_config_file);
 	int log_level = 1;
@@ -147,10 +255,10 @@ void CLogManager::readInitialLogSetting()
 		if ((log_level !=4) || (log_level < 0)) {
 			log_level = 4;
 		}
-		LOG_ERROR("log_level ¼³Á¤°ª ¿À·ù");
+		LOG_ERROR("log_level ì„¤ì •ê°’ ì˜¤ë¥˜");
 	}
 
-	// ·Î±× ·¹º§ ¼³Á¤
+	// ë¡œê·¸ ë ˆë²¨ ì„¤ì •
 	switch (log_level)
 	{
 	case 0:
@@ -177,27 +285,27 @@ void CLogManager::readInitialLogSetting()
 	}
 }
 
-// ·Î±× Ã³¸® worker ½º·¹µå ÇÔ¼ö
+// ë¡œê·¸ ì²˜ë¦¬ worker ìŠ¤ë ˆë“œ í•¨ìˆ˜
 void CLogManager::logWorker()
 {
 	while (true)
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
-		cv_.wait(lock); // Å¥¿¡ ·Î±×°¡ Ã¤¿öÁö±â¸¦ ´ë±â 
+		cv_.wait(lock); // íì— ë¡œê·¸ê°€ ì±„ì›Œì§€ê¸°ë¥¼ ëŒ€ê¸° 
 
 		while (!log_queue_.empty())
 		{
-			// Å¥¿¡¼­ ·Î±×¸¦ »­
+			// íì—ì„œ ë¡œê·¸ë¥¼ ëºŒ
 			std::pair log_msg = log_queue_.front();
 			log_queue_.pop();
 
-			// ·Î±×¸¦ ÆÄÀÏ¿¡ ±â·Ï
+			// ë¡œê·¸ë¥¼ íŒŒì¼ì— ê¸°ë¡
 			writeLogToFile(log_msg);
 		}
 	}
 }
 
-// ·Î±× ·¹º§À» ¹®ÀÚ¿­·Î º¯È¯
+// ë¡œê·¸ ë ˆë²¨ì„ ë¬¸ìì—´ë¡œ ë³€í™˜
 std::string CLogManager::convertLogLevelToString(LogLevel level)
 {
 	std::string level_str;
@@ -229,13 +337,13 @@ std::string CLogManager::convertLogLevelToString(LogLevel level)
 	return level_str;
 }
 
-// ·Î±×¸¦ ÅØ½ºÆ® ÆÄÀÏ·Î ÀúÀå
+// ë¡œê·¸ë¥¼ í…ìŠ¤íŠ¸ íŒŒì¼ë¡œ ì €ì¥
 void CLogManager::writeLogToFile(const std::pair<LogLevel, std::string>& message)
 {
-	// ·Î±× ÆÄÀÏÀÌ ¿­·ÁÀÖÁö ¾Ê°Å³ª, ¿ë·®ÀÌ 100 MB¸¦ ³ÑÀ¸¸é »õ ÆÄÀÏ·Î ±â·ÏÇÑ´Ù
+	// ë¡œê·¸ íŒŒì¼ì´ ì—´ë ¤ìˆì§€ ì•Šê±°ë‚˜, ìš©ëŸ‰ì´ 100 MBë¥¼ ë„˜ìœ¼ë©´ ìƒˆ íŒŒì¼ë¡œ ê¸°ë¡í•œë‹¤
 	if ((!current_log_file_.is_open()) || (current_log_file_size_ >= 100 * 1024 * 1024))
 	{
-		// ÇöÀç ³¯Â¥¿Í ½Ã°£ ±â¹İÀ¸·Î ÆÄÀÏ »ı¼º [¿¬¿ùÀÏ_½ÃºĞÃÊ]
+		// í˜„ì¬ ë‚ ì§œì™€ ì‹œê°„ ê¸°ë°˜ìœ¼ë¡œ íŒŒì¼ ìƒì„± [ì—°ì›”ì¼_ì‹œë¶„ì´ˆ]
 		std::time_t t = std::time(nullptr);
 		std::tm tm_tm = *std::localtime(&t);
 		char file_name[20];
@@ -243,29 +351,29 @@ void CLogManager::writeLogToFile(const std::pair<LogLevel, std::string>& message
 
 		if (tm_size == 0)
 		{
-			// ¿À·ù Ã³¸®
+			// ì˜¤ë¥˜ ì²˜ë¦¬
 			return;
 		}
 		else
 		{
 			std::string file_path = log_directory_ + "\\" + file_name;
 
-			// »õ ÆÄÀÏ ¿ÀÇÂ
+			// ìƒˆ íŒŒì¼ ì˜¤í”ˆ
 			current_log_file_.open(file_path, std::ios::out | std::ios::app);
-			current_log_file_size_ = 0; // »õ·Î¿î ÆÄÀÏÀÌ¹Ç·Î Å©±â ÃÊ±âÈ­
+			current_log_file_size_ = 0; // ìƒˆë¡œìš´ íŒŒì¼ì´ë¯€ë¡œ í¬ê¸° ì´ˆê¸°í™”
 		}
 	}
 
-	// ·Î±× ÆÄÀÏÀÌ ¼º°øÀûÀ¸·Î ¿­·ÈÀ» ¶§¸¸
+	// ë¡œê·¸ íŒŒì¼ì´ ì„±ê³µì ìœ¼ë¡œ ì—´ë ¸ì„ ë•Œë§Œ
 	if (current_log_file_.is_open())
 	{
-		// ·Î±× ·¹º§ ÀÌ»óÀÎ ¸Ş¼¼Áö¸¸ ±â·Ï
+		// ë¡œê·¸ ë ˆë²¨ ì´ìƒì¸ ë©”ì„¸ì§€ë§Œ ê¸°ë¡
 		if (message.first >= log_level_)
 		{
-			// ÆÄÀÏ¿¡ ·Î±× ¸Ş¼¼Áö ±â·Ï
+			// íŒŒì¼ì— ë¡œê·¸ ë©”ì„¸ì§€ ê¸°ë¡
 			current_log_file_ << message.second << std::endl;
 
-			// ÆÄÀÏ Å©±â °»½Å
+			// íŒŒì¼ í¬ê¸° ê°±ì‹ 
 			current_log_file_size_ += message.second.size();
 		}
 	}
