@@ -76,7 +76,7 @@ Logged path : `C:\MyLog\20250612\20250612_134508.txt`
 [2025-06-12 13:45:30.112] [INFO] callbackFuncA (Line : 5) -> this is callback A
 [2025-06-12 13:45:30.114] [DEBUG] callbackFuncB (Line : 2) -> this is callback B
 [2025-06-12 13:45:30.113] [ERROR] callbackFuncA (Line : 8) -> Error occured :(
-[2025-06-12 13:45:31.116] [ERROR] callbackFuncB (Line : 3) -> received data is 123.45
+[2025-06-12 13:45:31.116] [WARN] callbackFuncB (Line : 3) -> received data is 123.45
 ~~~
 
 <br/>
