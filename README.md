@@ -35,23 +35,10 @@ log_level = 1
 
 ## 🛠️ Usage
 
-### Include the header and declare the class object
+### Include the header and Log a message
 ~~~cpp
 #include "CLogManager.h"
 
-
-int main ()
-{
-    CLogManager CLogManager;
-
-    return 0;
-}
-~~~
-
-<!-- <br/> -->
-
-### Log a message macro function
-~~~cpp
 void callbackFuncB(const double& data)
 {
     LOG_DEBUG("this is callback B");
