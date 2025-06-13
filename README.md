@@ -12,6 +12,7 @@ A lightweight and easy-to-use C++ logging class that supports multi-threaded env
 - Automatic log file rotation (100 MB max per file)
 - Logs stored in per-day folders (e.g., `C:\MyLog\20250612`)
 - Configurable log level via `log_conf.ini`
+- Only tested in Windows
 
 </br>
 
